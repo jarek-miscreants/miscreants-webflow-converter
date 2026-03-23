@@ -283,7 +283,7 @@ function resolveClass(cls) {
 
   // ── Grid columns dynamic ──
   const gridColMatch = cls.match(/^grid-cols-(\d+)$/);
-  if (gridColMatch) return { 'grid-template-columns': `repeat(${gridColMatch[1]}, minmax(0, 1fr))` };
+  if (gridColMatch) return { 'grid-template-columns': `repeat(${gridColMatch[1]}, minmax(0px, 1fr))` };
 
   // ── Col/Row span dynamic ──
   const colSpanMatch = cls.match(/^col-span-(\d+)$/);

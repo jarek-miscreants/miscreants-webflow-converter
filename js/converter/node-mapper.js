@@ -17,8 +17,7 @@ const NATIVE_TYPES = {
 
 // Elements that should be wrapped in HtmlEmbed (outerHTML)
 const EMBED_FALLBACK_TAGS = new Set([
-  'canvas', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
-  'iframe', 'audio', 'map', 'details', 'summary', 'dialog', 'slot', 'template',
+  'template',
 ]);
 
 // Determine how an element should be mapped

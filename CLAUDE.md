@@ -129,19 +129,25 @@ Optional class prefix renaming is available — replaces detected prefix in the 
 - **Inline styles** (`style="..."`) → parsed and available via css-resolver.js
 - **`<style>` tags in HTML input** → extracted, parsed for selector matching, NOT put in embeds (already in the DOM)
 - **CSS tab content** → goes into a `<style>` HtmlEmbed (raw, unmodified)
-- **`@media` queries** → parsed and mapped to Webflow breakpoints (tiny ≤478, small ≤767, medium ≤991, xl ≥1440, xxl ≥1920)
+- **`@media` queries** → snapped to nearest Webflow breakpoint using midpoint ranges (see below). Matched styles populate `styleLess` on base styles and `variants` for breakpoint overrides.
+- **CSS variables** → `var()` values wrapped with `@raw<|...|>` in `styleLess`. `:root` variable declarations extracted into a separate `<style>` HtmlEmbed so Webflow Designer can resolve them.
 - **Other `@` rules** (`@property`, `@keyframes`, `@font-face`, `@layer`) → silently skipped by CSS parser. If in CSS tab, they pass through raw in the embed but Webflow Designer won't understand them (they work on published site only).
 
 ## Webflow Breakpoints (breakpoints.js)
 
-| Breakpoint | ID | Condition |
-|-----------|-----|-----------|
-| Desktop | `main` | Default (no media query) |
-| Tablet | `medium` | max-width: 991px |
-| Mobile landscape | `small` | max-width: 767px |
-| Mobile portrait | `tiny` | max-width: 478px |
-| Large | `xl` | min-width: 1440px |
-| Extra large | `xxl` | min-width: 1920px |
+Media queries are **snapped to the nearest Webflow breakpoint** using midpoint ranges, so non-standard values like `1000px` or `800px` map correctly.
+
+| Breakpoint | ID | max-width range | Webflow threshold |
+|-----------|-----|-----------------|-------------------|
+| Desktop | `main` | Default (no media query) | >991px |
+| Tablet | `medium` | ≥880px | ≤991px |
+| Mobile landscape | `small` | 623–879px | ≤767px |
+| Mobile portrait | `tiny` | ≤622px | ≤478px |
+
+| Breakpoint | ID | min-width range | Webflow threshold |
+|-----------|-----|-----------------|-------------------|
+| Large | `xl` | 992–1679px | ≥1440px |
+| Extra large | `xxl` | ≥1680px | ≥1920px |
 
 ## Known Limitations
 - No Tailwind class conversion (removed — planned rebuild with CSS-in-embed approach)

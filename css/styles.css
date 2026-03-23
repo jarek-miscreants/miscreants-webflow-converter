@@ -86,6 +86,40 @@ body {
   gap: 8px;
 }
 
+/* ── Mode Toggle ── */
+.mode-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.mode-btn {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all 0.15s;
+}
+
+.mode-btn:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.mode-btn.active {
+  background: var(--text-primary);
+  color: #000;
+}
+
+.mode-btn:hover:not(.active) {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
 /* ── Class Prefix Input ── */
 .class-prefix-input {
   padding: 6px 12px;

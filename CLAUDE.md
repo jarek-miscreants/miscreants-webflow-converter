@@ -53,6 +53,7 @@ js/converter/
 3. **Unique class suffixes** — style `_id` = `className-randomSuffix24chars`, `name` = clean class name. Prevents conflicts when pasting.
 4. **CSS selectors in embeds use `data-el` attributes** — Webflow renames classes on paste but never touches `data-*` attributes. Rewrite `.className` → `[data-el="className"]` in embedded CSS/JS.
 5. **`gap` → `grid-column-gap` + `grid-row-gap`** — Webflow uses older grid gap properties in styleLess.
+6. **`styleLess` requires longhand properties only** — Webflow Designer does not understand CSS shorthands. All shorthands must be expanded: `padding` → `padding-top/right/bottom/left`, `margin` → individual sides, `border` → width/style/color per side, `border-radius` → four corners, `background` → `background-color`, `gap` → `grid-column-gap` + `grid-row-gap`, `inset` → `top/right/bottom/left`, `overflow` → `overflow-x` + `overflow-y`. The `toStyleLess()` function in `tree-walker.js` handles this expansion.
 
 ### Combo Classes
 When a node has multiple classes (`classes: [baseId, comboId]`):

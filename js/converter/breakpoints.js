@@ -17,8 +17,8 @@ export function mapMediaQuery(mediaQueryString) {
 
   if (maxMatch) {
     const maxWidth = parseInt(maxMatch[1], 10);
-    if (maxWidth <= 478) return 'tiny';
-    if (maxWidth <= 767) return 'small';
+    if (maxWidth <= 480) return 'tiny';
+    if (maxWidth <= 768) return 'small';
     if (maxWidth <= 991) return 'medium';
     return null;
   }

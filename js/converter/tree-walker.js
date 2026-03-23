@@ -1,6 +1,7 @@
 import { generateId, generateClassSuffix } from './id-generator.js';
 import { mapElement, isEmbedFallback } from './node-mapper.js';
 import { createHtmlEmbedNode } from './js-handler.js';
+import { resolveStyles } from './css-resolver.js';
 
 export function walkDOM(rootElement, cssRules) {
   const nodes = [];
@@ -30,6 +31,34 @@ export function walkDOM(rootElement, cssRules) {
     styles.push(styleObj);
     classMap.set(className, styleId);
     return styleId;
+  }
+
+  // Apply resolved CSS properties to a style object
+  function applyStylesToClass(styleId, properties, mediaOverrides) {
+    const styleObj = styles.find(s => s._id === styleId);
+    if (!styleObj) return;
+
+    const baseStyleLess = toStyleLess(properties);
+    if (baseStyleLess) {
+      // Merge with existing styleLess (don't overwrite)
+      styleObj.styleLess = styleObj.styleLess
+        ? styleObj.styleLess + ' ' + baseStyleLess
+        : baseStyleLess;
+    }
+
+    if (mediaOverrides) {
+      for (const [breakpointId, props] of Object.entries(mediaOverrides)) {
+        const variantStyleLess = toStyleLess(props);
+        if (variantStyleLess) {
+          if (!styleObj.variants[breakpointId]) {
+            styleObj.variants[breakpointId] = { styleLess: '' };
+          }
+          styleObj.variants[breakpointId].styleLess = styleObj.variants[breakpointId].styleLess
+            ? styleObj.variants[breakpointId].styleLess + ' ' + variantStyleLess
+            : variantStyleLess;
+        }
+      }
+    }
   }
 
   // Collect all HTML attributes for a DOM node
@@ -86,6 +115,16 @@ export function walkDOM(rootElement, cssRules) {
     const nodeId = generateId();
     const classes = getClasses(element);
     const classIds = classes.map(cls => getOrCreateStyle(cls));
+
+    // Resolve CSS styles and apply to the first class's style object
+    if (cssRules.length > 0 && classIds.length > 0) {
+      const resolved = resolveStyles(element, cssRules);
+      if (resolved.properties && Object.keys(resolved.properties).length > 0) {
+        applyStylesToClass(classIds[0], resolved.properties, resolved.mediaOverrides);
+      } else if (resolved.mediaOverrides) {
+        applyStylesToClass(classIds[0], {}, resolved.mediaOverrides);
+      }
+    }
 
     // Build the node
     let node;
@@ -245,6 +284,151 @@ export function walkDOM(rootElement, cssRules) {
   }
 
   return { nodes, styles, rootIds: topChildIds, classMap };
+}
+
+// Parse a CSS shorthand value into 1-4 sides (top, right, bottom, left)
+function expandSides(value) {
+  const parts = value.trim().split(/\s+/);
+  if (parts.length === 1) return { top: parts[0], right: parts[0], bottom: parts[0], left: parts[0] };
+  if (parts.length === 2) return { top: parts[0], right: parts[1], bottom: parts[0], left: parts[1] };
+  if (parts.length === 3) return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[1] };
+  return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] };
+}
+
+// Convert CSS properties object to Webflow styleLess string (longhand only)
+function toStyleLess(properties) {
+  if (!properties || Object.keys(properties).length === 0) return '';
+
+  const expanded = {};
+
+  for (const [prop, value] of Object.entries(properties)) {
+    switch (prop) {
+      // Padding shorthand
+      case 'padding': {
+        const s = expandSides(value);
+        expanded['padding-top'] = s.top;
+        expanded['padding-right'] = s.right;
+        expanded['padding-bottom'] = s.bottom;
+        expanded['padding-left'] = s.left;
+        break;
+      }
+      case 'padding-inline': {
+        expanded['padding-left'] = value;
+        expanded['padding-right'] = value;
+        break;
+      }
+      case 'padding-block': {
+        expanded['padding-top'] = value;
+        expanded['padding-bottom'] = value;
+        break;
+      }
+
+      // Margin shorthand
+      case 'margin': {
+        const s = expandSides(value);
+        expanded['margin-top'] = s.top;
+        expanded['margin-right'] = s.right;
+        expanded['margin-bottom'] = s.bottom;
+        expanded['margin-left'] = s.left;
+        break;
+      }
+      case 'margin-inline': {
+        expanded['margin-left'] = value;
+        expanded['margin-right'] = value;
+        break;
+      }
+      case 'margin-block': {
+        expanded['margin-top'] = value;
+        expanded['margin-bottom'] = value;
+        break;
+      }
+
+      // Border-radius shorthand
+      case 'border-radius': {
+        const s = expandSides(value);
+        expanded['border-top-left-radius'] = s.top;
+        expanded['border-top-right-radius'] = s.right;
+        expanded['border-bottom-right-radius'] = s.bottom;
+        expanded['border-bottom-left-radius'] = s.left;
+        break;
+      }
+
+      // Border shorthand: "1px solid #ccc"
+      case 'border': {
+        const parts = value.trim().split(/\s+/);
+        if (parts.length >= 1) {
+          expanded['border-top-width'] = parts[0];
+          expanded['border-right-width'] = parts[0];
+          expanded['border-bottom-width'] = parts[0];
+          expanded['border-left-width'] = parts[0];
+        }
+        if (parts.length >= 2) {
+          expanded['border-top-style'] = parts[1];
+          expanded['border-right-style'] = parts[1];
+          expanded['border-bottom-style'] = parts[1];
+          expanded['border-left-style'] = parts[1];
+        }
+        if (parts.length >= 3) {
+          expanded['border-top-color'] = parts[2];
+          expanded['border-right-color'] = parts[2];
+          expanded['border-bottom-color'] = parts[2];
+          expanded['border-left-color'] = parts[2];
+        }
+        break;
+      }
+
+      // Background shorthand → background-color when it's just a color
+      case 'background': {
+        if (/^(#|rgb|hsl|transparent|inherit|currentColor|\w+$)/.test(value.trim())) {
+          expanded['background-color'] = value;
+        } else {
+          expanded['background-color'] = value;
+        }
+        break;
+      }
+
+      // Gap → Webflow grid gap properties
+      case 'gap': {
+        const gapParts = value.trim().split(/\s+/);
+        expanded['grid-column-gap'] = gapParts.length > 1 ? gapParts[1] : gapParts[0];
+        expanded['grid-row-gap'] = gapParts[0];
+        break;
+      }
+      case 'column-gap':
+        expanded['grid-column-gap'] = value;
+        break;
+      case 'row-gap':
+        expanded['grid-row-gap'] = value;
+        break;
+
+      // Inset shorthand
+      case 'inset': {
+        const s = expandSides(value);
+        expanded['top'] = s.top;
+        expanded['right'] = s.right;
+        expanded['bottom'] = s.bottom;
+        expanded['left'] = s.left;
+        break;
+      }
+
+      // Overflow shorthand
+      case 'overflow': {
+        expanded['overflow-x'] = value;
+        expanded['overflow-y'] = value;
+        break;
+      }
+
+      // Everything else passes through as-is (already longhand)
+      default:
+        expanded[prop] = value;
+    }
+  }
+
+  const parts = [];
+  for (const [prop, value] of Object.entries(expanded)) {
+    parts.push(`${prop}: ${value};`);
+  }
+  return parts.join(' ');
 }
 
 function updateStylesChildren(nodes, styles) {

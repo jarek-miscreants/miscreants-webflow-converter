@@ -15,19 +15,22 @@ export function mapMediaQuery(mediaQueryString) {
   const maxMatch = mq.match(/max-width\s*:\s*(\d+)/);
   const minMatch = mq.match(/min-width\s*:\s*(\d+)/);
 
+  // Snap max-width to nearest Webflow breakpoint using midpoint ranges
+  // Webflow: tiny ≤478, small ≤767, medium ≤991, desktop >991
   if (maxMatch) {
     const maxWidth = parseInt(maxMatch[1], 10);
-    if (maxWidth <= 480) return 'tiny';
-    if (maxWidth <= 768) return 'small';
-    if (maxWidth <= 991) return 'medium';
-    return null;
+    if (maxWidth <= 622) return 'tiny';     // midpoint between 478 and 767
+    if (maxWidth <= 879) return 'small';    // midpoint between 767 and 991
+    return 'medium';                        // anything above snaps to tablet
   }
 
+  // Snap min-width to nearest Webflow breakpoint
+  // Webflow: xl ≥1440, xxl ≥1920
   if (minMatch) {
     const minWidth = parseInt(minMatch[1], 10);
-    if (minWidth >= 1920) return 'xxl';
-    if (minWidth >= 1440) return 'xl';
-    return null;
+    if (minWidth < 992) return null;        // below desktop = not a large breakpoint
+    if (minWidth >= 1680) return 'xxl';     // midpoint between 1440 and 1920
+    return 'xl';
   }
 
   return null;

@@ -1,20 +1,19 @@
 :root {
-  --bg-primary: #0f1117;
-  --bg-secondary: #1a1d27;
-  --bg-tertiary: #252830;
-  --bg-hover: #2d3040;
-  --border: #333649;
-  --text-primary: #e4e6ed;
-  --text-secondary: #9ba1b0;
-  --text-muted: #6b7280;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-glow: rgba(99, 102, 241, 0.15);
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --error: #ef4444;
-  --radius: 8px;
-  --radius-lg: 12px;
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #141414;
+  --bg-hover: #1a1a1a;
+  --border: #222222;
+  --text-primary: #d4d4d4;
+  --text-secondary: #888888;
+  --text-muted: #505050;
+  --accent: #ffffff;
+  --accent-hover: #cccccc;
+  --success: #ffffff;
+  --warning: #999999;
+  --error: #ff4444;
+  --radius: 6px;
+  --radius-lg: 10px;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
@@ -49,30 +48,43 @@ body {
 }
 
 .logo {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.logo span {
-  color: var(--accent);
+.logo svg {
+  height: 14px;
+  width: auto;
+}
+
+.logo-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+}
+
+.logo-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
 }
 
 .badge {
-  font-size: 11px;
+  font-size: 10px;
   padding: 2px 8px;
   border-radius: 20px;
-  background: var(--accent-glow);
-  color: var(--accent);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
   font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .header-actions {
   display: flex;
   gap: 8px;
 }
-
 
 /* ── Class Prefix Input ── */
 .class-prefix-input {
@@ -89,7 +101,7 @@ body {
 }
 
 .class-prefix-input:focus {
-  border-color: var(--accent);
+  border-color: var(--text-secondary);
 }
 
 .class-prefix-input::placeholder {
@@ -118,25 +130,20 @@ body {
   border-color: var(--text-muted);
 }
 
+.btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: #000000;
 }
 
 .btn-primary:hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
-}
-
-.btn-success {
-  background: var(--success);
-  border-color: var(--success);
-  color: #fff;
-}
-
-.btn-icon {
-  padding: 8px;
 }
 
 /* ── Main Layout ── */
@@ -170,7 +177,7 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .panel-actions {
@@ -205,8 +212,8 @@ body {
 }
 
 .tab.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
 }
 
 .tab .dot {
@@ -214,7 +221,7 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--text-primary);
   margin-left: 6px;
   opacity: 0;
   transition: opacity 0.15s;
@@ -280,7 +287,7 @@ body {
 
 .divider:hover,
 .divider.active {
-  background: var(--accent);
+  background: var(--text-muted);
 }
 
 .divider::after {
@@ -297,7 +304,7 @@ body {
 
 .divider:hover::after,
 .divider.active::after {
-  background: #fff;
+  background: var(--text-primary);
 }
 
 /* ── Warnings Panel ── */
@@ -316,7 +323,7 @@ body {
 .warning-item {
   padding: 6px 16px;
   font-size: 12px;
-  color: var(--warning);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -356,8 +363,8 @@ body {
   bottom: 40px;
   right: 20px;
   padding: 10px 20px;
-  background: var(--success);
-  color: #fff;
+  background: var(--text-primary);
+  color: #000000;
   border-radius: var(--radius);
   font-size: 13px;
   font-weight: 500;

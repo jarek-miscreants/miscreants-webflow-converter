@@ -225,6 +225,11 @@ export function walkDOM(rootElement, cssRules) {
     }
   }
 
+  // Build combo class children hierarchy:
+  // When a node has classes [A, B], style A needs B in its children array
+  // so Webflow displays the combo correctly in the designer
+  updateStylesChildren(nodes, styles);
+
   // Wrap multiple top-level elements
   if (topChildIds.length > 1) {
     const wrapperId = generateId();
@@ -240,4 +245,35 @@ export function walkDOM(rootElement, cssRules) {
   }
 
   return { nodes, styles, rootIds: topChildIds, classMap };
+}
+
+function updateStylesChildren(nodes, styles) {
+  const childrenMap = {};
+  const comboIds = new Set(); // style IDs that appear as combo (non-first) classes
+
+  nodes.forEach(node => {
+    if (Array.isArray(node.classes) && node.classes.length > 1) {
+      for (let i = 0; i < node.classes.length - 1; i++) {
+        if (!childrenMap[node.classes[i]]) childrenMap[node.classes[i]] = new Set();
+        childrenMap[node.classes[i]].add(node.classes[i + 1]);
+      }
+      // Every class after the first is a combo class
+      for (let i = 1; i < node.classes.length; i++) {
+        comboIds.add(node.classes[i]);
+      }
+    }
+  });
+
+  styles.forEach(style => {
+    // Set children array on parent styles
+    if (childrenMap[style._id]) {
+      const existing = new Set(style.children || []);
+      childrenMap[style._id].forEach(c => existing.add(c));
+      style.children = Array.from(existing);
+    }
+    // Mark combo classes with comb: "&"
+    if (comboIds.has(style._id)) {
+      style.comb = '&';
+    }
+  });
 }

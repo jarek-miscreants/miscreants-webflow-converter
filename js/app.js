@@ -1,5 +1,4 @@
 import { convert } from './converter/pipeline.js';
-import { convertTailwind } from './converter/tailwind/tw-pipeline.js';
 
 // ── DOM References ──
 const htmlInput = document.getElementById('htmlInput');
@@ -17,24 +16,10 @@ const toast = document.getElementById('toast');
 const divider = document.getElementById('divider');
 const tabs = document.querySelectorAll('.tab');
 const classPrefixInput = document.getElementById('classPrefixInput');
-const modeBtns = document.querySelectorAll('.mode-btn');
 const inputs = { html: htmlInput, css: cssInput, js: jsInput };
 
 let lastResult = null;
 let detectedPrefix = null;
-let currentMode = 'generic'; // 'generic' or 'tailwind'
-
-// ── Mode Toggle ──
-modeBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    modeBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentMode = btn.dataset.mode;
-    statusMessage.textContent = currentMode === 'tailwind'
-      ? 'Tailwind mode — classes will map to Miscreants Starter'
-      : 'Generic mode — inline styles as attributes';
-  });
-});
 
 // ── Tab Switching ──
 tabs.forEach(tab => {
@@ -88,9 +73,7 @@ function runConversion() {
 
   try {
     statusMessage.textContent = 'Converting...';
-    const { result, warnings } = currentMode === 'tailwind'
-      ? convertTailwind(html, css, js)
-      : convert(html, css, js);
+    const { result, warnings } = convert(html, css, js);
     lastResult = result;
 
     // Auto-detect the class prefix from the first class in the HTML

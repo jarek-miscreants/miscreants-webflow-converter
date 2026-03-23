@@ -3,6 +3,22 @@ import { parseCSS } from './css-parser.js';
 import { walkDOM } from './tree-walker.js';
 import { createScriptEmbeds, createStyleEmbed } from './js-handler.js';
 
+// Extract :root and variable declarations from CSS into a <style> embed
+function extractVariableEmbed(css) {
+  if (!css || !css.trim()) return null;
+
+  const varBlocks = [];
+  const regex = /(:root\s*\{[^}]*\})/g;
+  let match;
+  while ((match = regex.exec(css)) !== null) {
+    varBlocks.push(match[1]);
+  }
+
+  if (varBlocks.length === 0) return null;
+  const varCSS = varBlocks.join('\n');
+  return createStyleEmbed(varCSS);
+}
+
 export function convert(htmlString, cssString, jsString) {
   const warnings = [];
 
@@ -16,28 +32,34 @@ export function convert(htmlString, cssString, jsString) {
   // Step 3: Walk DOM tree → Webflow nodes + styles with unique class suffixes
   const { nodes, styles, rootIds, classMap } = walkDOM(body, cssRules);
 
-  // Step 4: Create CSS/JS embeds with class selectors intact
-  // Class names in the JSON have unique suffixes so they won't conflict on paste
+  // Step 4: Create CSS/JS embeds
   const cssEmbed = cssString?.trim() ? createStyleEmbed(cssString) : null;
   const scriptEmbeds = createScriptEmbeds(extractedScripts, jsString);
 
-  // Step 5: Attach embeds as children of root node
-  if (scriptEmbeds.length > 0 || cssEmbed) {
-    const rootNode = rootIds.length > 0
-      ? nodes.find(n => n._id === rootIds[0])
-      : null;
+  // Step 4b: Extract :root / variable declarations from extracted CSS into a separate embed
+  // so var() references in styleLess can resolve in Webflow Designer
+  const varEmbed = extractVariableEmbed(extractedCSS);
 
-    if (rootNode) {
-      if (cssEmbed) {
-        cssEmbed.data.displayName = 'CSS';
-        nodes.push(cssEmbed);
-        rootNode.children.unshift(cssEmbed._id);
-      }
-      for (const embed of scriptEmbeds) {
-        embed.data.displayName = 'JS';
-        nodes.push(embed);
-        rootNode.children.push(embed._id);
-      }
+  // Step 5: Attach embeds as children of root node
+  const rootNode = rootIds.length > 0
+    ? nodes.find(n => n._id === rootIds[0])
+    : null;
+
+  if (rootNode) {
+    if (varEmbed) {
+      varEmbed.data.displayName = 'CSS';
+      nodes.push(varEmbed);
+      rootNode.children.unshift(varEmbed._id);
+    }
+    if (cssEmbed) {
+      cssEmbed.data.displayName = 'CSS';
+      nodes.push(cssEmbed);
+      rootNode.children.unshift(cssEmbed._id);
+    }
+    for (const embed of scriptEmbeds) {
+      embed.data.displayName = 'JS';
+      nodes.push(embed);
+      rootNode.children.push(embed._id);
     }
   }
 

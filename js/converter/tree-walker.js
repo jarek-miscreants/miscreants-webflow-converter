@@ -426,7 +426,9 @@ function toStyleLess(properties) {
 
   const parts = [];
   for (const [prop, value] of Object.entries(expanded)) {
-    parts.push(`${prop}: ${value};`);
+    // Wrap var() references with @raw<|...|> for Webflow
+    const wfValue = value.includes('var(') ? `@raw<|${value}|>` : value;
+    parts.push(`${prop}: ${wfValue};`);
   }
   return parts.join(' ');
 }

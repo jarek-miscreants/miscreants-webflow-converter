@@ -24,13 +24,10 @@ export function mapMediaQuery(mediaQueryString) {
     return 'medium';                        // anything above snaps to tablet
   }
 
-  // Snap min-width to nearest Webflow breakpoint
-  // Webflow: xl ≥1440, xxl ≥1920
+  // min-width queries: anything >991 is desktop (base styles) — never create
+  // additional breakpoints above desktop. Ignore all min-width queries.
   if (minMatch) {
-    const minWidth = parseInt(minMatch[1], 10);
-    if (minWidth < 992) return null;        // below desktop = not a large breakpoint
-    if (minWidth >= 1680) return 'xxl';     // midpoint between 1440 and 1920
-    return 'xl';
+    return null;
   }
 
   return null;

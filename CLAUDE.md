@@ -144,10 +144,7 @@ Media queries are **snapped to the nearest Webflow breakpoint** using midpoint r
 | Mobile landscape | `small` | 623–879px | ≤767px |
 | Mobile portrait | `tiny` | ≤622px | ≤478px |
 
-| Breakpoint | ID | min-width range | Webflow threshold |
-|-----------|-----|-----------------|-------------------|
-| Large | `xl` | 992–1679px | ≥1440px |
-| Extra large | `xxl` | ≥1680px | ≥1920px |
+**min-width queries are ignored** — anything above 991px is desktop (base styles). The converter never creates xl/xxl breakpoints to avoid adding breakpoints that don't exist in the Webflow project.
 
 ## Known Limitations
 - No Tailwind class conversion (removed — planned rebuild with CSS-in-embed approach)

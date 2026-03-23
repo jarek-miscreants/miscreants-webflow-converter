@@ -1,11 +1,14 @@
 // Tailwind → Webflow (Miscreants Starter) conversion pipeline
+// Uses the proper mapping tables from the Tailwind Converter project
 
 import { parseHTML } from '../html-parser.js';
 import { generateId, generateClassSuffix } from '../id-generator.js';
 import { mapElement, isEmbedFallback } from '../node-mapper.js';
 import { createHtmlEmbedNode, createScriptEmbeds, createStyleEmbed } from '../js-handler.js';
-import { parseTailwindClasses } from './tw-parser.js';
-import { mapTailwindToStarter } from './tw-to-starter.js';
+import allMappings, { paddingMappings } from './tw-mappings.js';
+import { resolveCompoundClasses } from './tw-compound.js';
+import { parseClass, parseClassString, isTailwindClass } from './tw-parser-full.js';
+import { generateFallbackCSS, combineFallbackCSS } from './tw-fallback.js';
 
 export function convertTailwind(htmlString, cssString, jsString) {
   const warnings = [];
@@ -13,34 +16,76 @@ export function convertTailwind(htmlString, cssString, jsString) {
 
   const nodes = [];
   const styles = [];
-  const classMap = new Map(); // starter class name → style ID (deduplicated)
+  const classMap = new Map(); // class name → style ID
 
   function getOrCreateStyle(className, styleLess = '') {
     if (classMap.has(className)) return classMap.get(className);
     const suffix = generateClassSuffix();
     const styleId = `${className}-${suffix}`;
     styles.push({
-      _id: styleId,
-      fake: false,
-      type: 'class',
-      name: className,
-      namespace: '',
-      comb: '&',
-      styleLess,
-      variants: {},
-      children: [],
-      createdBy: 'converter',
-      origin: null,
-      selector: null,
+      _id: styleId, fake: false, type: 'class', name: className,
+      namespace: '', comb: '&', styleLess, variants: {},
+      children: [], createdBy: 'converter', origin: null, selector: null,
     });
     classMap.set(className, styleId);
     return styleId;
   }
 
-  function getClasses(element) {
-    return element.className && typeof element.className === 'string'
-      ? element.className.trim().split(/\s+/).filter(Boolean)
-      : [];
+  // Convert Tailwind classes to Miscreants Starter classes
+  function convertTailwindClasses(twClassString) {
+    const classes = parseClassString(twClassString);
+    const starterClasses = [];
+    const fallbackClasses = [];
+
+    // Step 1: Resolve compound classes (flex + items-center → hflex-left-center)
+    const { resolvedClasses, remainingClasses, consumedClasses } = resolveCompoundClasses(classes);
+    starterClasses.push(...resolvedClasses);
+
+    // Step 2: Map remaining classes
+    for (const cls of remainingClasses) {
+      const parsed = parseClass(cls);
+
+      // Skip responsive/state prefixes (handle as fallback CSS)
+      if (parsed.responsive || parsed.states.length > 0) {
+        fallbackClasses.push(cls);
+        continue;
+      }
+
+      // Skip non-Tailwind classes — keep as custom classes
+      if (!parsed.isTailwind) {
+        starterClasses.push(cls);
+        continue;
+      }
+
+      const baseClass = parsed.baseClass;
+
+      // Strip line-height modifier: text-base/7 → text-base
+      const cleanClass = baseClass.includes('/') ? baseClass.split('/')[0] : baseClass;
+
+      // Check direct mappings
+      if (allMappings[cleanClass] !== undefined) {
+        if (allMappings[cleanClass] !== null) {
+          starterClasses.push(allMappings[cleanClass]);
+        }
+        continue;
+      }
+
+      // Check padding mappings (can return array)
+      if (paddingMappings[cleanClass] !== undefined) {
+        const result = paddingMappings[cleanClass];
+        if (Array.isArray(result)) {
+          starterClasses.push(...result);
+        } else if (result) {
+          starterClasses.push(result);
+        }
+        continue;
+      }
+
+      // Unmapped Tailwind class → fallback CSS
+      fallbackClasses.push(cls);
+    }
+
+    return { starterClasses, fallbackClasses };
   }
 
   function isTextOnly(element) {
@@ -75,30 +120,62 @@ export function convertTailwind(htmlString, cssString, jsString) {
 
     const nodeId = generateId();
 
-    // Parse Tailwind classes
-    const twClasses = getClasses(element);
-    const { base, responsive, states } = parseTailwindClasses(twClasses.join(' '));
+    // Convert Tailwind classes to Starter
+    const twClassStr = element.className && typeof element.className === 'string'
+      ? element.className.trim() : '';
+    const { starterClasses, fallbackClasses } = twClassStr
+      ? convertTailwindClasses(twClassStr)
+      : { starterClasses: [], fallbackClasses: [] };
 
-    // Map base classes to Starter
-    const { starterClasses, cssProperties } = mapTailwindToStarter(base);
+    // Generate fallback CSS for unmapped classes
+    if (fallbackClasses.length > 0) {
+      const fallbacks = generateFallbackCSS(fallbackClasses);
+      // Add fallback CSS as inline style attributes
+      for (const fb of fallbacks) {
+        if (fb.css) {
+          const propMatch = fb.css.match(/\{([^}]+)\}/);
+          if (propMatch) {
+            // Extract CSS properties and add to element style
+            // (handled below via style attribute)
+          }
+        }
+      }
+      // Track as warnings
+      fallbackClasses.forEach(cls => {
+        warnings.push(`Unmapped: ${cls} (converted to inline CSS)`);
+      });
+    }
 
-    // Create style entries for each Starter class
+    // Create style entries for Starter classes
     const classIds = starterClasses.map(cls => getOrCreateStyle(cls));
 
-    // Collect non-class, non-style attributes
+    // Build attributes
     const attributes = [];
     for (const attr of element.attributes) {
       if (attr.name === 'class') continue;
-      if (attr.name === 'style') continue; // we handle style separately
       attributes.push({ name: attr.name, value: attr.value });
     }
 
-    // Build inline style from: original inline style + Tailwind-resolved CSS properties
+    // Generate fallback inline styles for unmapped Tailwind classes
+    const fallbackStyles = [];
+    for (const cls of fallbackClasses) {
+      const fallbacks = generateFallbackCSS([cls]);
+      for (const fb of fallbacks) {
+        if (fb.css && fb.type !== 'unknown') {
+          const propMatch = fb.css.match(/\{([^}]+)\}/);
+          if (propMatch) {
+            fallbackStyles.push(propMatch[1].trim().replace(/\/\*.*?\*\//g, '').trim());
+          }
+        }
+      }
+    }
+
+    // Combine existing style + fallback styles
     const existingStyle = element.getAttribute('style') || '';
-    const twCSS = Object.entries(cssProperties)
-      .map(([k, v]) => `${k}: ${v}`)
-      .join('; ');
-    const combinedStyle = [existingStyle, twCSS].filter(Boolean).join('; ');
+    const combinedStyle = [existingStyle, ...fallbackStyles].filter(Boolean).join(' ');
+    // Remove existing style attr (we'll add combined one)
+    const attrIdx = attributes.findIndex(a => a.name === 'style');
+    if (attrIdx >= 0) attributes.splice(attrIdx, 1);
     if (combinedStyle) {
       attributes.push({ name: 'style', value: combinedStyle });
     }
@@ -107,45 +184,21 @@ export function convertTailwind(htmlString, cssString, jsString) {
     let node;
     if (mapped.isDOMType || mapped.type === 'DOM') {
       node = {
-        _id: nodeId,
-        type: 'DOM',
-        tag: 'div',
-        classes: classIds,
-        children: [],
+        _id: nodeId, type: 'DOM', tag: 'div', classes: classIds, children: [],
         data: { tag, attributes, slot: '', text: false, visibility: { conditions: [] } },
       };
     } else {
       const data = {
-        devlink: { runtimeProps: {}, slot: '' },
-        displayName: '',
-        attr: { id: element.id || '' },
-        xattr: [],
-        search: { exclude: false },
-        visibility: { conditions: [] },
+        devlink: { runtimeProps: {}, slot: '' }, displayName: '',
+        attr: { id: element.id || '' }, xattr: [],
+        search: { exclude: false }, visibility: { conditions: [] },
       };
       for (const attr of element.attributes) {
-        if (attr.name.startsWith('data-')) {
-          data.xattr.push({ name: attr.name, value: attr.value });
-        }
+        if (attr.name.startsWith('data-')) data.xattr.push({ name: attr.name, value: attr.value });
       }
-      if (tag === 'a') {
-        data.attr.href = element.getAttribute('href') || '#';
-        data.attr.target = element.getAttribute('target') || '';
-      }
-      if (tag === 'img') {
-        data.attr.src = element.getAttribute('src') || '';
-        data.attr.alt = element.getAttribute('alt') || '';
-        data.attr.loading = element.getAttribute('loading') || 'lazy';
-      }
-
-      node = {
-        _id: nodeId,
-        type: mapped.type,
-        tag,
-        classes: classIds,
-        children: [],
-        data,
-      };
+      if (tag === 'a') { data.attr.href = element.getAttribute('href') || '#'; data.attr.target = element.getAttribute('target') || ''; }
+      if (tag === 'img') { data.attr.src = element.getAttribute('src') || ''; data.attr.alt = element.getAttribute('alt') || ''; data.attr.loading = element.getAttribute('loading') || 'lazy'; }
+      node = { _id: nodeId, type: mapped.type, tag, classes: classIds, children: [], data };
     }
 
     nodes.push(node);
@@ -206,7 +259,6 @@ export function convertTailwind(htmlString, cssString, jsString) {
     }
   }
 
-  // Wrap multiple top-level
   let rootIds = topChildIds;
   if (topChildIds.length > 1) {
     const wid = generateId();
@@ -219,7 +271,7 @@ export function convertTailwind(htmlString, cssString, jsString) {
     rootIds = [wid];
   }
 
-  // Update styles children (combo class hierarchy)
+  // Update combo class children hierarchy
   updateStylesChildren(nodes, styles);
 
   // Attach CSS/JS embeds
@@ -227,16 +279,8 @@ export function convertTailwind(htmlString, cssString, jsString) {
   const scriptEmbeds = createScriptEmbeds(extractedScripts, jsString);
   const rootNode = rootIds.length > 0 ? nodes.find(n => n._id === rootIds[0]) : null;
   if (rootNode) {
-    if (cssEmbed) {
-      cssEmbed.data.displayName = 'CSS';
-      nodes.push(cssEmbed);
-      rootNode.children.unshift(cssEmbed._id);
-    }
-    for (const embed of scriptEmbeds) {
-      embed.data.displayName = 'JS';
-      nodes.push(embed);
-      rootNode.children.push(embed._id);
-    }
+    if (cssEmbed) { cssEmbed.data.displayName = 'CSS'; nodes.push(cssEmbed); rootNode.children.unshift(cssEmbed._id); }
+    for (const embed of scriptEmbeds) { embed.data.displayName = 'JS'; nodes.push(embed); rootNode.children.push(embed._id); }
   }
 
   return {
@@ -252,16 +296,13 @@ export function convertTailwind(htmlString, cssString, jsString) {
   };
 }
 
-// Build combo class children relationships (same as Relume converter)
 function updateStylesChildren(nodes, styles) {
   const childrenMap = {};
   nodes.forEach(node => {
     if (Array.isArray(node.classes) && node.classes.length > 1) {
       for (let i = 0; i < node.classes.length - 1; i++) {
-        const parent = node.classes[i];
-        const child = node.classes[i + 1];
-        if (!childrenMap[parent]) childrenMap[parent] = new Set();
-        childrenMap[parent].add(child);
+        if (!childrenMap[node.classes[i]]) childrenMap[node.classes[i]] = new Set();
+        childrenMap[node.classes[i]].add(node.classes[i + 1]);
       }
     }
   });

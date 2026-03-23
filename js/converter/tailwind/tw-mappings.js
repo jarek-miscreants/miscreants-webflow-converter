@@ -339,14 +339,14 @@ export const textSizeMappings = {
   'text-base': 'text-size-regular',
   'text-lg': 'text-size-large',
   'text-xl': 'text-size-large',
-  'text-2xl': 'heading-style-h6',
-  'text-3xl': 'heading-style-h5',
-  'text-4xl': 'heading-style-h4',
-  'text-5xl': 'heading-style-h3',
-  'text-6xl': 'heading-style-h2',
-  'text-7xl': 'heading-style-h1',
-  'text-8xl': 'heading-style-display',
-  'text-9xl': 'heading-style-display',
+  'text-2xl': 'text-h6',
+  'text-3xl': 'text-h5',
+  'text-4xl': 'text-h4',
+  'text-5xl': 'text-h3',
+  'text-6xl': 'text-h2',
+  'text-7xl': 'text-h1',
+  'text-8xl': 'text-h1',
+  'text-9xl': 'text-h1',
 };
 
 // Align items mappings

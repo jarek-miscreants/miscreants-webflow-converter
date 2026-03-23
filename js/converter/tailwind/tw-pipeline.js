@@ -18,10 +18,15 @@ export function convertTailwind(htmlString, cssString, jsString) {
   const styles = [];
   const classMap = new Map(); // class name → style ID
 
+  // For Tailwind mode: use PLAIN class names (no suffixes) for known Starter classes
+  // so they match existing classes in the Webflow project.
+  // Only custom/unknown classes get unique suffixes.
   function getOrCreateStyle(className, styleLess = '') {
     if (classMap.has(className)) return classMap.get(className);
-    const suffix = generateClassSuffix();
-    const styleId = `${className}-${suffix}`;
+    // Use the class name AS-IS as the ID — this way Webflow matches it
+    // to the existing class in the project (e.g., "grid-column-2" matches
+    // the project's "grid-column-2" with its grid styles)
+    const styleId = className;
     styles.push({
       _id: styleId, fake: false, type: 'class', name: className,
       namespace: '', comb: '&', styleLess, variants: {},

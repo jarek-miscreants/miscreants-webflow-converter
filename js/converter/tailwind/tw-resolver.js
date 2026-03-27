@@ -282,8 +282,9 @@ function resolveClass(cls) {
   if (fwMatch) return { 'font-weight': fwMatch[1] };
 
   // ── Grid columns dynamic ──
+  // Expanded (not repeat()) — Webflow Designer paste bug with repeat(N, ...)
   const gridColMatch = cls.match(/^grid-cols-(\d+)$/);
-  if (gridColMatch) return { 'grid-template-columns': `repeat(${gridColMatch[1]}, minmax(0px, 1fr))` };
+  if (gridColMatch) return { 'grid-template-columns': Array(Number(gridColMatch[1])).fill('minmax(0px, 1fr)').join(' ') };
 
   // ── Col/Row span dynamic ──
   const colSpanMatch = cls.match(/^col-span-(\d+)$/);

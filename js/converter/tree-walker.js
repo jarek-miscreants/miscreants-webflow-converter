@@ -418,6 +418,18 @@ function toStyleLess(properties) {
         break;
       }
 
+      // Grid template: expand repeat(N, ...) — Webflow Designer paste bug
+      case 'grid-template-columns':
+      case 'grid-template-rows': {
+        const repeatMatch = value.match(/^repeat\((\d+),\s*(.+)\)$/);
+        if (repeatMatch) {
+          expanded[prop] = Array(Number(repeatMatch[1])).fill(repeatMatch[2].trim()).join(' ');
+        } else {
+          expanded[prop] = value;
+        }
+        break;
+      }
+
       // Everything else passes through as-is (already longhand)
       default:
         expanded[prop] = value;

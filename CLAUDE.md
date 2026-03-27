@@ -25,6 +25,10 @@ js/converter/
   id-generator.js   — Generates Webflow-style node IDs and class suffixes
   style-mapper.js   — Builds style objects (currently minimal, used for styleLess)
   breakpoints.js    — Maps CSS media queries to Webflow breakpoint IDs
+  tailwind/
+    tw-pipeline.js  — Tailwind conversion pipeline: parse HTML → resolve classes → Webflow nodes
+    tw-resolver.js  — Core resolution engine: Tailwind class → CSS properties
+    tw-classes.js   — Static lookup tables: 341 utility classes, full color palette, spacing scale
 ```
 
 ## Conversion Pipeline (pipeline.js)
@@ -146,9 +150,39 @@ Media queries are **snapped to the nearest Webflow breakpoint** using midpoint r
 
 **min-width queries are ignored** — anything above 991px is desktop (base styles). The converter never creates xl/xxl breakpoints to avoid adding breakpoints that don't exist in the Webflow project.
 
+## Tailwind Converter (tailwind/)
+
+The UI has a **Generic / Tailwind** mode toggle. Tailwind mode resolves utility classes directly to Webflow's native `styleLess` properties — no CSS embeds needed.
+
+### How It Works
+1. **Parse HTML** → DOM tree (same as generic)
+2. **For each element**, extract classes and call `resolveTailwindClasses()`
+3. **Resolve** each class to CSS properties via static lookup (tw-classes.js) or dynamic regex patterns (tw-resolver.js)
+4. **Generate styleLess** from resolved properties, wrapping `var()` refs in `@raw<|...|>`
+5. **Non-Tailwind classes** preserved as separate Webflow classes (fallback)
+6. **Assemble** Webflow JSON with native styles
+
+### Supported Utilities
+- **Spacing**: `p-4`, `px-2`, `mt-8`, `gap-6`, `space-x-4` (full scale 0–96 + arbitrary)
+- **Sizing**: `w-12`, `h-full`, `min-w-0`, `max-h-screen`, `size-6`
+- **Layout**: `flex`, `grid`, `grid-cols-3`, `col-span-2`, `block`, `hidden`, `inline-flex`
+- **Position**: `relative`, `absolute`, `top-4`, `inset-x-0`
+- **Colors**: full Tailwind palette (slate→rose, 50–950) + theme tokens (`bg-background` → `var(--background)`)
+- **Typography**: `text-4xl`, `font-semibold`, `leading-tight`, `tracking-wide`, `text-balance`
+- **Border/Radius**: `rounded-lg`, `rounded-t-md`, `border`, `border-gray-300`
+- **Effects**: `opacity-50`, `shadow-lg`, `ring-2`
+- **Transforms**: `scale-95`, `rotate-45`, `translate-x-4`
+- **Arbitrary values**: `p-[13px]`, `bg-[#ff0]`, `text-[1.5rem]`
+- **Responsive prefixes**: `sm:`, `md:`, `lg:`, `xl:`, `2xl:` (applied to desktop in v1)
+- **shadcn/ui theme tokens**: `bg-background`, `text-foreground`, `text-muted-foreground` → CSS variables
+
+### Limitations (Tailwind mode)
+- **State variants skipped**: `hover:`, `focus:`, `active:`, `dark:` — Webflow styleLess doesn't support pseudo-states (warns user)
+- **Responsive prefixes**: currently all apply to desktop (mobile-first breakpoint mapping not yet implemented)
+- **Negative values**: `-mt-4` etc. supported but some edge cases may not resolve
+
 ## Known Limitations
-- No Tailwind class conversion (removed — planned rebuild with CSS-in-embed approach)
 - `@property`, `@keyframes` etc. in CSS tab pass through raw but aren't flagged as warnings
-- `styleLess` generation is minimal — most styling relies on CSS embeds with `data-el` selectors
+- `styleLess` generation in generic mode is minimal — most styling relies on CSS embeds with `data-el` selectors
 - No interaction/animation (ix2) generation
 - No CMS binding support

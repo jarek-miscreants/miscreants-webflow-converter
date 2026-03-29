@@ -56,6 +56,10 @@ export function convertTailwind(htmlString, cssString, jsString) {
   function generateClassName(element, parentName) {
     const tag = element.tagName.toLowerCase();
 
+    // Use data-wf-class if present (explicit user-defined name)
+    const wfClass = element.getAttribute('data-wf-class');
+    if (wfClass) return sanitizeName(wfClass);
+
     // Use id if present
     if (element.id) return sanitizeName(element.id);
 
@@ -85,7 +89,7 @@ export function convertTailwind(htmlString, cssString, jsString) {
   function collectDOMAttributes(element) {
     const attributes = [];
     for (const attr of element.attributes) {
-      if (attr.name === 'class') continue;
+      if (attr.name === 'class' || attr.name === 'data-wf-class') continue;
       attributes.push({ name: attr.name, value: attr.value });
     }
     return attributes;
@@ -169,6 +173,7 @@ export function convertTailwind(htmlString, cssString, jsString) {
         search: { exclude: false }, visibility: { conditions: [] },
       };
       for (const attr of element.attributes) {
+        if (attr.name === 'data-wf-class') continue;
         if (attr.name.startsWith('data-')) data.xattr.push({ name: attr.name, value: attr.value });
       }
       if (tag === 'a') { data.attr.href = element.getAttribute('href') || '#'; data.attr.target = element.getAttribute('target') || ''; }

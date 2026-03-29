@@ -7,10 +7,6 @@ const NATIVE_TYPES = {
   'li': 'ListItem',
   'img': 'Image',
   'a': 'Link',
-  'form': 'FormWrapper',
-  'input': 'FormTextInput',
-  'textarea': 'FormTextarea',
-  'select': 'FormSelect',
   'video': 'Video',
   'blockquote': 'Blockquote',
 };

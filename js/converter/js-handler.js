@@ -20,7 +20,9 @@ export function createScriptEmbeds(extractedScripts, jsTabContent) {
 
   // JS from the dedicated JS input tab
   if (jsTabContent && jsTabContent.trim()) {
-    embeds.push(createHtmlEmbedNode(`<script>${jsTabContent}<\/script>`));
+    // Strip wrapping <script> tags if user included them
+    const stripped = jsTabContent.trim().replace(/^<script[^>]*>([\s\S]*)<\/script>$/i, '$1');
+    embeds.push(createHtmlEmbedNode(`<script>${stripped}<\/script>`));
   }
 
   return embeds;
@@ -62,5 +64,7 @@ export function createHtmlEmbedNode(htmlContent) {
 
 export function createStyleEmbed(cssContent) {
   if (!cssContent || !cssContent.trim()) return null;
-  return createHtmlEmbedNode(`<style>${cssContent}</style>`);
+  // Strip wrapping <style> tags if user included them
+  const stripped = cssContent.trim().replace(/^<style[^>]*>([\s\S]*)<\/style>$/i, '$1');
+  return createHtmlEmbedNode(`<style>${stripped}</style>`);
 }

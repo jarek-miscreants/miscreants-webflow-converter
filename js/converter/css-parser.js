@@ -124,3 +124,106 @@ export function parseCSS(cssText) {
   if (!cssText || !cssText.trim()) return [];
   return extractRules(cssText);
 }
+
+// Rebuild CSS string from rules that were NOT matched (i.e. not resolved into styleLess).
+// Also preserves @rules that the parser skips (like @keyframes, @font-face).
+export function rebuildUnmatchedCSS(cssText, rules) {
+  const unmatched = rules.filter(r => !r.matched);
+  if (unmatched.length === 0 && !/@(keyframes|font-face|property|layer|supports|import)\b/.test(cssText)) {
+    return '';
+  }
+
+  // Extract passthrough @rules (not @media — those are handled via parsed rules)
+  const passthroughBlocks = [];
+  let i = 0;
+  while (i < cssText.length) {
+    while (i < cssText.length && /\s/.test(cssText[i])) i++;
+    if (i >= cssText.length) break;
+
+    if (cssText[i] === '/' && cssText[i + 1] === '*') {
+      const end = cssText.indexOf('*/', i + 2);
+      i = end === -1 ? cssText.length : end + 2;
+      continue;
+    }
+
+    if (cssText[i] === '@') {
+      const mediaMatch = cssText.slice(i).match(/^@media\s/);
+      if (mediaMatch) {
+        // Skip @media — its inner rules are in the parsed rules array
+        const braceStart = cssText.indexOf('{', i);
+        if (braceStart === -1) break;
+        let depth = 1, j = braceStart + 1;
+        while (j < cssText.length && depth > 0) {
+          if (cssText[j] === '{') depth++;
+          else if (cssText[j] === '}') depth--;
+          j++;
+        }
+        i = j;
+        continue;
+      }
+
+      // Other @rule — preserve it
+      const otherAt = cssText.slice(i).match(/^@[\w-]+\s*[^{]*\{/);
+      if (otherAt) {
+        const braceStart = i + otherAt[0].length;
+        let depth = 1, j = braceStart;
+        while (j < cssText.length && depth > 0) {
+          if (cssText[j] === '{') depth++;
+          else if (cssText[j] === '}') depth--;
+          j++;
+        }
+        passthroughBlocks.push(cssText.slice(i, j));
+        i = j;
+        continue;
+      }
+
+      // Simple @rule (no block, e.g. @import)
+      const semi = cssText.indexOf(';', i);
+      if (semi !== -1) {
+        passthroughBlocks.push(cssText.slice(i, semi + 1));
+        i = semi + 1;
+      } else {
+        i = cssText.length;
+      }
+      continue;
+    }
+
+    // Regular rule — skip (handled by parsed rules)
+    const braceIndex = cssText.indexOf('{', i);
+    if (braceIndex === -1) break;
+    let depth = 1, j = braceIndex + 1;
+    while (j < cssText.length && depth > 0) {
+      if (cssText[j] === '{') depth++;
+      else if (cssText[j] === '}') depth--;
+      j++;
+    }
+    i = j;
+  }
+
+  // Rebuild from unmatched rules
+  const parts = [];
+  const mediaGroups = {};
+
+  for (const rule of unmatched) {
+    const declStr = Object.entries(rule.properties)
+      .map(([p, v]) => `  ${p}: ${v};`)
+      .join('\n');
+    const ruleStr = `${rule.selector} {\n${declStr}\n}`;
+
+    if (rule.mediaQuery) {
+      if (!mediaGroups[rule.mediaQuery]) mediaGroups[rule.mediaQuery] = [];
+      mediaGroups[rule.mediaQuery].push(ruleStr);
+    } else {
+      parts.push(ruleStr);
+    }
+  }
+
+  for (const [mq, ruleStrs] of Object.entries(mediaGroups)) {
+    parts.push(`@media ${mq} {\n${ruleStrs.map(r => '  ' + r.replace(/\n/g, '\n  ')).join('\n')}\n}`);
+  }
+
+  // Add passthrough @rules
+  parts.push(...passthroughBlocks);
+
+  return parts.join('\n\n');
+}

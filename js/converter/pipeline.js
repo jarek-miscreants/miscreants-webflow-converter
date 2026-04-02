@@ -1,5 +1,5 @@
 import { parseHTML } from './html-parser.js';
-import { parseCSS } from './css-parser.js';
+import { parseCSS, rebuildUnmatchedCSS } from './css-parser.js';
 import { walkDOM } from './tree-walker.js';
 import { createScriptEmbeds, createStyleEmbed } from './js-handler.js';
 
@@ -25,15 +25,19 @@ export function convert(htmlString, cssString, jsString) {
   // Step 1: Parse HTML, extract embedded <style> and <script> tags
   const { body, extractedCSS, extractedScripts } = parseHTML(htmlString || '');
 
-  // Step 2: Parse CSS for style resolution (used by walkDOM for styleLess on transitions etc.)
-  const allCSS = [cssString || '', extractedCSS].filter(Boolean).join('\n');
-  const cssRules = parseCSS(allCSS);
+  // Step 2: Parse CSS for style resolution (used by walkDOM for styleLess)
+  // Parse CSS tab rules separately so we can track which ones get resolved
+  const cssTabRules = parseCSS(cssString || '');
+  const extractedRules = parseCSS(extractedCSS);
+  const cssRules = [...cssTabRules, ...extractedRules];
 
   // Step 3: Walk DOM tree → Webflow nodes + styles with unique class suffixes
+  // After this, matched rules will have rule.matched = true
   const { nodes, styles, rootIds, classMap } = walkDOM(body, cssRules);
 
-  // Step 4: Create CSS/JS embeds
-  const cssEmbed = cssString?.trim() ? createStyleEmbed(cssString) : null;
+  // Step 4: Create CSS/JS embeds — only include CSS rules that weren't resolved into styleLess
+  const remainingCSS = cssString?.trim() ? rebuildUnmatchedCSS(cssString, cssTabRules) : '';
+  const cssEmbed = remainingCSS ? createStyleEmbed(remainingCSS) : null;
   const scriptEmbeds = createScriptEmbeds(extractedScripts, jsString);
 
   // Step 4b: Extract :root / variable declarations from extracted CSS into a separate embed

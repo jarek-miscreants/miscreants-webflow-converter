@@ -34,6 +34,7 @@ export function resolveStyles(element, cssRules) {
   const mediaOverrides = {};
 
   for (const rule of matchingRules) {
+    rule.matched = true;
     if (!rule.mediaQuery) {
       // Base (desktop) styles
       Object.assign(baseProperties, rule.properties);

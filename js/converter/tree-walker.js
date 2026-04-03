@@ -65,7 +65,9 @@ export function walkDOM(rootElement, cssRules) {
   function collectDOMAttributes(element) {
     const attributes = [];
     for (const attr of element.attributes) {
-      if (attr.name === 'class') continue; // classes handled separately
+      // Skip class for HTML elements (handled via Webflow's class system),
+      // but preserve it for SVG children where it's just a plain attribute
+      if (attr.name === 'class' && typeof element.className === 'string') continue;
       attributes.push({ name: attr.name, value: attr.value });
     }
     return attributes;

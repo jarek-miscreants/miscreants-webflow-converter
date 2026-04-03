@@ -135,6 +135,14 @@ export function walkDOM(rootElement, cssRules) {
       // DOM type: most elements (div, h1-h6, button, span, svg, etc.)
       const attributes = collectDOMAttributes(element);
 
+      // Make SVGs responsive: width 100%, height auto (viewBox handles aspect ratio)
+      if (tag === 'svg') {
+        const widthAttr = attributes.find(a => a.name === 'width');
+        const heightAttr = attributes.find(a => a.name === 'height');
+        if (widthAttr) widthAttr.value = '100%';
+        if (heightAttr) heightAttr.value = 'auto';
+      }
+
       node = {
         _id: nodeId,
         type: 'DOM',

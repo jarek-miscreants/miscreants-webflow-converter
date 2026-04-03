@@ -2,6 +2,7 @@ import { parseHTML } from './html-parser.js';
 import { parseCSS, rebuildUnmatchedCSS } from './css-parser.js';
 import { walkDOM } from './tree-walker.js';
 import { createScriptEmbeds, createStyleEmbed } from './js-handler.js';
+import { generateId } from './id-generator.js';
 
 // Extract :root and variable declarations from CSS into a <style> embed
 function extractVariableEmbed(css) {
@@ -50,9 +51,32 @@ export function convert(htmlString, cssString, jsString) {
   const varEmbed = extractVariableEmbed(extractedCSS);
 
   // Step 5: Attach embeds as children of root node
-  const rootNode = rootIds.length > 0
+  const hasEmbeds = varEmbed || extractedCssEmbed || cssEmbed || scriptEmbeds.length > 0;
+  let rootNode = rootIds.length > 0
     ? nodes.find(n => n._id === rootIds[0])
     : null;
+
+  // If root is an SVG (or other non-div element), wrap in a Block so embeds
+  // are siblings of the SVG rather than incorrectly nested inside it
+  if (rootNode && hasEmbeds && rootNode.type === 'DOM' && rootNode.data?.tag !== 'div') {
+    const wrapperId = generateId();
+    const wrapper = {
+      _id: wrapperId,
+      type: 'Block',
+      tag: 'div',
+      classes: [],
+      children: [rootNode._id],
+      data: {
+        text: false, tag: 'div',
+        devlink: { runtimeProps: {}, slot: '' },
+        displayName: '', attr: { id: '' }, xattr: [],
+        search: { exclude: false }, visibility: { conditions: [] },
+      },
+    };
+    nodes.push(wrapper);
+    rootIds[0] = wrapperId;
+    rootNode = wrapper;
+  }
 
   if (rootNode) {
     if (varEmbed) {

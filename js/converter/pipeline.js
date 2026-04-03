@@ -40,7 +40,12 @@ export function convert(htmlString, cssString, jsString) {
   const cssEmbed = remainingCSS ? createStyleEmbed(remainingCSS) : null;
   const scriptEmbeds = createScriptEmbeds(extractedScripts, jsString);
 
-  // Step 4b: Extract :root / variable declarations from extracted CSS into a separate embed
+  // Step 4b: Rebuild unmatched rules from extracted <style> tags into an embed
+  // (rules that couldn't be resolved into styleLess, e.g. transitions, pseudo-classes)
+  const remainingExtracted = extractedCSS?.trim() ? rebuildUnmatchedCSS(extractedCSS, extractedRules) : '';
+  const extractedCssEmbed = remainingExtracted ? createStyleEmbed(remainingExtracted) : null;
+
+  // Step 4c: Extract :root / variable declarations from extracted CSS into a separate embed
   // so var() references in styleLess can resolve in Webflow Designer
   const varEmbed = extractVariableEmbed(extractedCSS);
 
@@ -54,6 +59,11 @@ export function convert(htmlString, cssString, jsString) {
       varEmbed.data.displayName = 'CSS';
       nodes.push(varEmbed);
       rootNode.children.unshift(varEmbed._id);
+    }
+    if (extractedCssEmbed) {
+      extractedCssEmbed.data.displayName = 'CSS';
+      nodes.push(extractedCssEmbed);
+      rootNode.children.unshift(extractedCssEmbed._id);
     }
     if (cssEmbed) {
       cssEmbed.data.displayName = 'CSS';

@@ -296,9 +296,29 @@ export function walkDOM(rootElement, cssRules) {
   return { nodes, styles, rootIds: topChildIds, classMap };
 }
 
+// Split a CSS value into whitespace-separated tokens, keeping parenthesized
+// groups like rgba(1, 2, 3, 0.5) or var(--x, red) intact as a single token.
+function splitTokens(value) {
+  const out = [];
+  let depth = 0;
+  let buf = '';
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i];
+    if (ch === '(') { depth++; buf += ch; }
+    else if (ch === ')') { depth--; buf += ch; }
+    else if (depth === 0 && /\s/.test(ch)) {
+      if (buf) { out.push(buf); buf = ''; }
+    } else {
+      buf += ch;
+    }
+  }
+  if (buf) out.push(buf);
+  return out;
+}
+
 // Parse a CSS shorthand value into 1-4 sides (top, right, bottom, left)
 function expandSides(value) {
-  const parts = value.trim().split(/\s+/);
+  const parts = splitTokens(value.trim());
   if (parts.length === 1) return { top: parts[0], right: parts[0], bottom: parts[0], left: parts[0] };
   if (parts.length === 2) return { top: parts[0], right: parts[1], bottom: parts[0], left: parts[1] };
   if (parts.length === 3) return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[1] };
@@ -363,9 +383,9 @@ function toStyleLess(properties) {
         break;
       }
 
-      // Border shorthand: "1px solid #ccc"
+      // Border shorthand: "1px solid #ccc" / "1px solid rgba(0,0,0,.2)" / "1px solid var(--c)"
       case 'border': {
-        const parts = value.trim().split(/\s+/);
+        const parts = splitTokens(value.trim());
         if (parts.length >= 1) {
           expanded['border-top-width'] = parts[0];
           expanded['border-right-width'] = parts[0];
@@ -399,7 +419,7 @@ function toStyleLess(properties) {
 
       // Gap → Webflow grid gap properties
       case 'gap': {
-        const gapParts = value.trim().split(/\s+/);
+        const gapParts = splitTokens(value.trim());
         expanded['grid-column-gap'] = gapParts.length > 1 ? gapParts[1] : gapParts[0];
         expanded['grid-row-gap'] = gapParts[0];
         break;
